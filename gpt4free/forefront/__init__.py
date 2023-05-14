@@ -15,10 +15,12 @@ from tls_client import Session
 
 from .typing import ForeFrontResponse, AccountData
 
+import requests
 
 class Account:
     @staticmethod
     def create(proxy: Optional[str] = None, logging: bool = False) -> AccountData:
+        #proxy='127.0.0.1:33210'
         proxies = {'http': 'http://' + proxy, 'https': 'http://' + proxy} if proxy else False
 
         start = time()
@@ -35,7 +37,9 @@ class Account:
         }
 
         response = client.post(
-            'https://clerk.forefront.ai/v1/client/sign_ups?_clerk_js_version=4.38.4',
+            'https://clerk.forefront.ai/npm/@clerk/clerk-js@4.39.0/dist/signup_f62107_4.39.0.js',
+            #'https://clerk.forefront.ai/v1/client?_clerk_js_version=4.39.0'
+            #'https://clerk.forefront.ai/v1/client/sign_ups?_clerk_js_version=4.38.4',
             data={'email_address': mail_address},
         )
 
@@ -74,11 +78,13 @@ class Account:
 
         response = client.get('https://clerk.forefront.ai/v1/client?_clerk_js_version=4.38.4').json()
         session_data = response['response']['sessions'][0]
-
+        print(session_data)
         user_id = session_data['user']['id']
+        print(user_id)
         session_id = session_data['id']
+        print(session_id)
         token = session_data['last_active_token']['jwt']
-
+        print(token)
         with open('accounts.txt', 'a') as f:
             f.write(f'{mail_address}:{token}\n')
 
@@ -105,10 +111,12 @@ class StreamingCompletion:
 
         proxies = {'http': 'http://' + proxy, 'https': 'http://' + proxy} if proxy else None
         base64_data = b64encode((account_data.user_id + default_persona + chat_id).encode()).decode()
+        #print(base64_data)
         encrypted_signature = StreamingCompletion.__encrypt(base64_data, account_data.session_id)
 
         headers = {
-            'authority': 'chat-server.tenant-forefront-default.knative.chi.coreweave.com',
+            'authority': 'streaming.tenant-forefront-default.knative.chi.coreweave.com',
+            #'authority': 'chat-server.tenant-forefront-default.knative.chi.coreweave.com',
             'accept': '*/*',
             'accept-language': 'en,fr-FR;q=0.9,fr;q=0.8,es-ES;q=0.7,es;q=0.6,en-US;q=0.5,am;q=0.4,de;q=0.3',
             'cache-control': 'no-cache',
@@ -123,7 +131,7 @@ class StreamingCompletion:
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'cross-site',
             'authorization': f"Bearer {token}",
-            'X-Signature': encrypted_signature,
+            'X-Signature': encrypted_signature,#'dd6cd8e58e560cee2f66fd5d559d077d1db02df5bfe85a59f5835e10813e6d8645b01395c02b3ce8fcf233537370422089a7a302dbe74dbdca20b1904a7f3501',#encrypted_signature,
             'user-agent': UserAgent().random,
         }
 
@@ -136,33 +144,73 @@ class StreamingCompletion:
             'model': model,
         }
 
-        for chunk in post(
-            'https://streaming.tenant-forefront-default.knative.chi.coreweave.com/chat',
-            headers=headers,
-            proxies=proxies,
-            json=json_data,
-            stream=True,
-        ).iter_lines():
-            if b'finish_reason":null' in chunk:
-                data = loads(chunk.decode('utf-8').split('data: ')[1])
-                token = data['choices'][0]['delta'].get('content')
+        print(headers)
+        try:
+            response = post(
+                'https://streaming.tenant-forefront-default.knative.chi.coreweave.com/chat',
+                headers=headers,
 
-                if token is not None:
-                    yield ForeFrontResponse(
-                        **{
-                            'id': chat_id,
-                            'object': 'text_completion',
-                            'created': int(time()),
-                            'text': token,
-                            'model': model,
-                            'choices': [{'text': token, 'index': 0, 'logprobs': None, 'finish_reason': 'stop'}],
-                            'usage': {
-                                'prompt_tokens': len(prompt),
-                                'completion_tokens': len(token),
-                                'total_tokens': len(prompt) + len(token),
-                            },
-                        }
-                    )
+            )
+            print(response.headers)
+            response.raise_for_status()  # Raise an HTTPError if the HTTP request returned an unsuccessful status code.
+        except requests.exceptions.RequestException as e:
+            # Handle the exception as you see fit.
+            print(f"An error occurred: {e}")
+        else:
+            for chunk in response.iter_lines():
+                if b'finish_reason":null' in chunk:
+                    data = loads(chunk.decode('utf-8').split('data: ')[1])
+                    #print(data)
+                    token = data['choices'][0]['delta'].get('content')
+                    #print(token)
+                    if token is not None:
+                        yield ForeFrontResponse(
+                            **{
+                                'id': chat_id,
+                                'object': 'text_completion',
+                                'created': int(time()),
+                                'text': token,
+                                'model': model,
+                                'choices': [{'text': token, 'index': 0, 'logprobs': None, 'finish_reason': 'stop'}],
+                                'usage': {
+                                    'prompt_tokens': len(prompt),
+                                    'completion_tokens': len(token),
+                                    'total_tokens': len(prompt) + len(token),
+                                },
+                            }
+                        )
+
+
+
+        # for chunk in post(
+        #     'https://streaming.tenant-forefront-default.knative.chi.coreweave.com/chat',
+        #     headers=headers,
+        #     proxies=proxies,
+        #     json=json_data,
+        #     stream=True,
+        # ).iter_lines():
+        #     if b'finish_reason":null' in chunk:
+        #         print(chunk)
+        #         data = loads(chunk.decode('utf-8').split('data: ')[1])
+        #         #print(data)
+        #         token = data['choices'][0]['delta'].get('content')
+        #         #print(token)
+        #         if token is not None:
+        #             yield ForeFrontResponse(
+        #                 **{
+        #                     'id': chat_id,
+        #                     'object': 'text_completion',
+        #                     'created': int(time()),
+        #                     'text': token,
+        #                     'model': model,
+        #                     'choices': [{'text': token, 'index': 0, 'logprobs': None, 'finish_reason': 'stop'}],
+        #                     'usage': {
+        #                         'prompt_tokens': len(prompt),
+        #                         'completion_tokens': len(token),
+        #                         'total_tokens': len(prompt) + len(token),
+        #                     },
+        #                 }
+        #             )
 
     @staticmethod
     def __encrypt(data: str, key: str) -> str:
@@ -193,6 +241,7 @@ class Completion:
     ) -> ForeFrontResponse:
         text = ''
         final_response = None
+        #print("----11")  
         for response in StreamingCompletion.create(
             account_data=account_data,
             chat_id=chat_id,
@@ -202,10 +251,11 @@ class Completion:
             model=model,
             proxy=proxy
         ):
+           
             if response:
                 final_response = response
                 text += response.text
-
+                #print(response)  
         if final_response:
             final_response.text = text
         else:

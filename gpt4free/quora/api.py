@@ -142,23 +142,27 @@ class Client:
         logger.info("Downloading next_data...")
 
         r = retry_request(self.session.get, self.home_url)
+        print(r.text)
+
         json_regex = r'<script id="__NEXT_DATA__" type="application\/json">(.+?)</script>'
         json_text = re.search(json_regex, r.text).group(1)
+        print(json_text)
         next_data = json.loads(json_text)
-
+        print(next_data)
         if overwrite_vars:
             self.formkey = self.extract_formkey(r.text)
             self.viewer = next_data["props"]["pageProps"]["payload"]["viewer"]
             self.next_data = next_data
-
+        print(next_data)
         return next_data
 
     def get_bot(self, display_name):
         url = f'https://poe.com/_next/data/{self.next_data["buildId"]}/{display_name}.json'
-
+        print(url)
         r = retry_request(self.session.get, url)
-
+        print(r.json)
         chat_data = r.json()["pageProps"]["payload"]["chatOfBotDisplayName"]
+        print(chat_data)
         return chat_data
 
     def get_bots(self, download_next_data=True):
@@ -168,9 +172,11 @@ class Client:
         else:
             next_data = self.next_data
 
-        if not "availableBots" in self.viewer:
-            raise RuntimeError("Invalid token or no bots are available.")
+        #if not "availableBots" in self.viewer:
+        print(self.viewer)
+         #   raise RuntimeError("Invalid token or no bots are available.")
         bot_list = self.viewer["availableBots"]
+        print("bot_list")
 
         threads = []
         bots = {}

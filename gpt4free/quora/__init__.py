@@ -42,7 +42,8 @@ your script again. The error should be resolved.'''
 
 MODELS = {
     'Sage': 'capybara',
-    'GPT-4': 'beaver',
+    'gpt-4': 'beaver',
+    #'GPT-4': 'beaver',
     'Claude+': 'a2_2',
     'Claude-instant': 'a2',
     'ChatGPT': 'chinchilla',
@@ -187,6 +188,7 @@ class Account:
         enable_bot_creation: bool = False,
     ):
         client = TLS(client_identifier='chrome110')
+        #proxy='127.0.0.1:33210'
         client.proxies = {'http': f'http://{proxy}', 'https': f'http://{proxy}'} if proxy else {}
 
         mail_client = Emailnator()
@@ -341,15 +343,15 @@ class Completion:
         proxy: Optional[str] = None,
     ) -> PoeResponse:
         _model = MODELS[model] if not custom_model else custom_model
-
+        print("1")
         proxies = {'http': 'http://' + proxy, 'https': 'http://' + proxy} if proxy else False
         client = PoeClient(token)
         client.proxy = proxies
-
+        print("2")
         chunk = None
         for response in client.send_message(_model, prompt):
             chunk = response
-
+        print("3")
         return PoeResponse(
             **{
                 'id': chunk['messageId'],

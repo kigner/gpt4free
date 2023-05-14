@@ -37,7 +37,7 @@ class Completion:
     ) -> YouResponse:
         if chat is None:
             chat = []
-
+        #proxy='127.0.0.1:33210'
         proxies = {'http': 'http://' + proxy, 'https': 'http://' + proxy} if proxy else {}
 
         client = Session(client_identifier='chrome_108')

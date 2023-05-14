@@ -27,7 +27,11 @@ class Completion:
             'origin': 'https://chatbot.theb.ai',
             'user-agent': UserAgent().random,
         }
-
+     #----------------重置  
+        Completion.stream_completed = False
+        Completion.message_queue = Queue()
+        Completion.last_msg_id = None
+    #---------------
         proxies = {'http': 'http://' + proxy, 'https': 'http://' + proxy} if proxy else None
         
         options = {}
@@ -44,6 +48,7 @@ class Completion:
         )
 
         Completion.stream_completed = True
+        
 
     @staticmethod
     def create(prompt: str, proxy: Optional[str] = None) -> Generator[str, None, None]:
